@@ -23,12 +23,44 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Build public artifact (allowlist)
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          # Explicit allowlist: only these pages are published.
+          for f in index.html dentistry.html ai-automation.html producer.html; do
+            if [ ! -f "$f" ]; then
+              echo "::error::Required page $f is missing"
+              exit 1
+            fi
+            cp "$f" dist/
+          done
+          # Local static assets referenced by the pages (if any).
+          if [ -d assets ]; then cp -R assets dist/; fi
+          # Guard: fail if anything outside the allowlist landed in dist.
+          FORBIDDEN=$(find dist -type f \
+            \( -name '*.csv' -o -name '*.md' -o -name '*.py' -o -name '*.png' -o -name '*.jpg' -o -name '*.env' -o -name '*.key' -o -name '*.pem' -o -name '*.yml' -o -name '*.yaml' \) \
+            | grep -v '^dist/assets/' || true)
+          if [ -n "$FORBIDDEN" ]; then
+            echo "::error::Forbidden files in public artifact:"
+            echo "$FORBIDDEN"
+            exit 1
+          fi
+          # Guard: explicitly banned paths.
+          for bad in dist/LEADS dist/AGENT_BRIEF.md dist/CASE_STUDIES.md dist/FOUNDER_PROFILE.md dist/shot.py dist/.git dist/.github; do
+            if [ -e "$bad" ]; then
+              echo "::error::Banned path in artifact: $bad"
+              exit 1
+            fi
+          done
+          echo "Public artifact contents:"
+          find dist -type f | sort
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Upload site artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: "."
+          path: "dist"
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
