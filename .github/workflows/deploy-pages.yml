@@ -38,19 +38,23 @@ jobs:
           # Explicit allowlist of publishable local assets. Nothing else from
           # assets/ is copied, and files are never included just because they
           # have a "safe" extension: every published asset is named here.
-          if [ -d assets ]; then
+          # Every published local asset must be named here and mirrored in
+          # EXPECTED below. Nothing else from assets/ is ever copied.
+          ASSETS="assets/shakin-720.webp"
+          if [ -d assets ] && [ -n "$ASSETS" ]; then
             mkdir -p dist/assets
-            for a in assets/site.css; do
+            for a in $ASSETS; do
               if [ -f "$a" ]; then
                 cp "$a" "dist/$a"
               else
-                echo "::warning::Allowlisted asset $a not found, skipped"
+                echo "::error::Allowlisted asset $a not found"
+                exit 1
               fi
             done
           fi
           # Guard: nothing except the four pages and the allowlisted assets may
           # land in dist. Compare the actual file list with the expected one.
-          EXPECTED=$(printf '%s\n' index.html dentistry.html ai-automation.html producer.html assets/site.css | sort)
+          EXPECTED=$(printf '%s\n' index.html dentistry.html ai-automation.html producer.html assets/shakin-720.webp | sort)
           ACTUAL=$(find dist -type f | sed 's|^dist/||' | sort)
           if [ "$ACTUAL" != "$EXPECTED" ]; then
             echo "::error::Unexpected files in public artifact (strict allowlist):"
